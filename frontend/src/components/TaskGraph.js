@@ -25,7 +25,7 @@ const TaskGraph = () => {
     completed: '#10b981',
     blocked: '#ef4444',
   };
-  const EDGE_COLOR = '#9ca3af';
+  const EDGE_COLOR = '#6b7280'; // Darker gray for better visibility
   const SELECTED_COLOR = '#f59e0b';
 
   // Load graph data on mount and check performance mode
@@ -41,6 +41,53 @@ const TaskGraph = () => {
       setPerformanceMode(false);
     }
   }, [graphData.nodes.length, PERFORMANCE_THRESHOLD]);
+
+  // Helper function to draw an arrow between two points
+  const drawArrow = useCallback((ctx, fromX, fromY, toX, toY, isHighlighted = false) => {
+    const arrowLength = isHighlighted ? 18 : 15;
+    const arrowWidth = isHighlighted ? 8 : 6;
+    
+    // Calculate direction
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance === 0) return; // Avoid division by zero
+    
+    const unitX = dx / distance;
+    const unitY = dy / distance;
+    
+    // Draw main line
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    
+    // Calculate arrowhead position
+    const arrowBaseX = toX - arrowLength * 0.7 * unitX;
+    const arrowBaseY = toY - arrowLength * 0.7 * unitY;
+    
+    // Calculate perpendicular vector for arrowhead width
+    const perpX = -unitY;
+    const perpY = unitX;
+    
+    // Draw filled triangular arrowhead
+    ctx.beginPath();
+    ctx.moveTo(toX, toY); // Arrow tip
+    ctx.lineTo(
+      arrowBaseX + perpX * arrowWidth,
+      arrowBaseY + perpY * arrowWidth
+    );
+    ctx.lineTo(
+      arrowBaseX - perpX * arrowWidth,
+      arrowBaseY - perpY * arrowWidth
+    );
+    ctx.closePath();
+    ctx.fill();
+    
+    // Add stroke to arrowhead for better visibility
+    ctx.stroke();
+  }, []);
 
   // Calculate layout positions for nodes
   const calculateLayout = useCallback((nodes, edges) => {
@@ -163,34 +210,34 @@ const TaskGraph = () => {
           
           // Set edge style
           ctx.strokeStyle = isHighlighted ? SELECTED_COLOR : EDGE_COLOR;
+          ctx.fillStyle = isHighlighted ? SELECTED_COLOR : EDGE_COLOR;
           ctx.lineWidth = isHighlighted ? 3 : (shouldSkipDetails ? 1 : 2);
           
-          // Draw arrow
-          ctx.beginPath();
-          ctx.moveTo(sourceNode.x, sourceNode.y);
-          ctx.lineTo(targetNode.x, targetNode.y);
-          ctx.stroke();
-
-          // Draw arrowhead (skip in performance mode when zoomed out)
+          // Calculate edge endpoints (from edge of circles, not centers)
+          const dx = targetNode.x - sourceNode.x;
+          const dy = targetNode.y - sourceNode.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance === 0) return; // Skip if nodes are at same position
+          
+          // Normalize direction vector
+          const unitX = dx / distance;
+          const unitY = dy / distance;
+          
+          // Calculate start and end points on circle edges
+          const startX = sourceNode.x + NODE_RADIUS * unitX;
+          const startY = sourceNode.y + NODE_RADIUS * unitY;
+          const endX = targetNode.x - (NODE_RADIUS + 5) * unitX; // Extra space for arrow
+          const endY = targetNode.y - (NODE_RADIUS + 5) * unitY;
+          
+          // Draw arrow using helper function
           if (!shouldSkipDetails) {
-            const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
-            const arrowLength = 15;
-            const arrowAngle = Math.PI / 6;
-
-            const arrowX = targetNode.x - NODE_RADIUS * Math.cos(angle);
-            const arrowY = targetNode.y - NODE_RADIUS * Math.sin(angle);
-
+            drawArrow(ctx, startX, startY, endX, endY, isHighlighted);
+          } else {
+            // Simple line for performance mode
             ctx.beginPath();
-            ctx.moveTo(arrowX, arrowY);
-            ctx.lineTo(
-              arrowX - arrowLength * Math.cos(angle - arrowAngle),
-              arrowY - arrowLength * Math.sin(angle - arrowAngle)
-            );
-            ctx.moveTo(arrowX, arrowY);
-            ctx.lineTo(
-              arrowX - arrowLength * Math.cos(angle + arrowAngle),
-              arrowY - arrowLength * Math.sin(angle + arrowAngle)
-            );
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
             ctx.stroke();
           }
         }
@@ -257,7 +304,7 @@ const TaskGraph = () => {
     });
 
     ctx.restore();
-  }, [graphData, canvasSize, zoom, pan, selectedNode, calculateLayout, NODE_COLORS, EDGE_COLOR, SELECTED_COLOR, performanceMode]);
+  }, [graphData, canvasSize, zoom, pan, selectedNode, calculateLayout, NODE_COLORS, EDGE_COLOR, SELECTED_COLOR, performanceMode, drawArrow]);
 
   // Handle canvas resize
   useEffect(() => {
@@ -515,7 +562,10 @@ const TaskGraph = () => {
       {/* Instructions */}
       <div className="mt-4 text-sm text-gray-600">
         <p>
-          <strong>Instructions:</strong> Click and drag to pan • Scroll to zoom • Click nodes to highlight dependencies • Arrows show dependency direction
+          <strong>Instructions:</strong> Click and drag to pan • Scroll to zoom • Click nodes to highlight dependencies • <strong>Arrows show dependency direction</strong> (A → B means A depends on B)
+        </p>
+        <p className="mt-1">
+          <strong>Arrow Colors:</strong> Gray arrows = normal dependencies • Orange arrows = highlighted dependencies
         </p>
       </div>
     </div>
