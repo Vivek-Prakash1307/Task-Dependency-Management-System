@@ -21,7 +21,6 @@ const TaskStats = () => {
     }
 
     const dependencyCounts = tasks.map(task => task.dependencies?.length || 0);
-    const dependentCounts = tasks.map(task => task.dependents?.length || 0);
 
     return {
       avgDependencies: dependencyCounts.reduce((a, b) => a + b, 0) / tasks.length,

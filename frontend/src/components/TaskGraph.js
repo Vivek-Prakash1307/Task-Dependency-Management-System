@@ -19,14 +19,16 @@ const TaskGraph = () => {
 
   // Node and edge styling constants
   const NODE_RADIUS = 30;
-  const NODE_COLORS = {
+  const EDGE_COLOR = '#4b5563'; // Even darker gray for better arrow visibility
+  const SELECTED_COLOR = '#f59e0b';
+  
+  // Memoize node colors to prevent unnecessary re-renders
+  const NODE_COLORS = React.useMemo(() => ({
     pending: '#6b7280',
     in_progress: '#3b82f6',
     completed: '#10b981',
     blocked: '#ef4444',
-  };
-  const EDGE_COLOR = '#6b7280'; // Darker gray for better visibility
-  const SELECTED_COLOR = '#f59e0b';
+  }), []);
 
   // Load graph data on mount and check performance mode
   useEffect(() => {
@@ -44,8 +46,8 @@ const TaskGraph = () => {
 
   // Helper function to draw an arrow between two points
   const drawArrow = useCallback((ctx, fromX, fromY, toX, toY, isHighlighted = false) => {
-    const arrowLength = isHighlighted ? 18 : 15;
-    const arrowWidth = isHighlighted ? 8 : 6;
+    const arrowLength = isHighlighted ? 20 : 16; // Slightly larger arrows
+    const arrowWidth = isHighlighted ? 9 : 7;   // Wider arrows for better visibility
     
     // Calculate direction
     const dx = toX - fromX;
@@ -57,15 +59,16 @@ const TaskGraph = () => {
     const unitX = dx / distance;
     const unitY = dy / distance;
     
-    // Draw main line
+    // Draw main line with increased thickness
+    ctx.lineWidth = isHighlighted ? 3 : 2.5; // Thicker lines for better visibility
     ctx.beginPath();
     ctx.moveTo(fromX, fromY);
     ctx.lineTo(toX, toY);
     ctx.stroke();
     
     // Calculate arrowhead position
-    const arrowBaseX = toX - arrowLength * 0.7 * unitX;
-    const arrowBaseY = toY - arrowLength * 0.7 * unitY;
+    const arrowBaseX = toX - arrowLength * 0.8 * unitX; // Slightly longer base
+    const arrowBaseY = toY - arrowLength * 0.8 * unitY;
     
     // Calculate perpendicular vector for arrowhead width
     const perpX = -unitY;
@@ -85,7 +88,8 @@ const TaskGraph = () => {
     ctx.closePath();
     ctx.fill();
     
-    // Add stroke to arrowhead for better visibility
+    // Add stroke to arrowhead for better definition
+    ctx.lineWidth = isHighlighted ? 2 : 1.5;
     ctx.stroke();
   }, []);
 
@@ -94,7 +98,6 @@ const TaskGraph = () => {
     if (nodes.length === 0) return [];
 
     // Simple hierarchical layout algorithm
-    const nodeMap = new Map(nodes.map(node => [node.id, { ...node, level: 0, position: 0 }]));
     const adjacencyList = new Map();
     const inDegree = new Map();
 
@@ -208,10 +211,10 @@ const TaskGraph = () => {
           // Skip non-highlighted edges in performance mode when something is selected
           if (performanceMode && selectedNode && !isHighlighted) return;
           
-          // Set edge style
+          // Set edge style with enhanced visibility
           ctx.strokeStyle = isHighlighted ? SELECTED_COLOR : EDGE_COLOR;
           ctx.fillStyle = isHighlighted ? SELECTED_COLOR : EDGE_COLOR;
-          ctx.lineWidth = isHighlighted ? 3 : (shouldSkipDetails ? 1 : 2);
+          ctx.lineWidth = isHighlighted ? 3 : (shouldSkipDetails ? 1.5 : 2.5);
           
           // Calculate edge endpoints (from edge of circles, not centers)
           const dx = targetNode.x - sourceNode.x;
@@ -227,8 +230,8 @@ const TaskGraph = () => {
           // Calculate start and end points on circle edges
           const startX = sourceNode.x + NODE_RADIUS * unitX;
           const startY = sourceNode.y + NODE_RADIUS * unitY;
-          const endX = targetNode.x - (NODE_RADIUS + 5) * unitX; // Extra space for arrow
-          const endY = targetNode.y - (NODE_RADIUS + 5) * unitY;
+          const endX = targetNode.x - (NODE_RADIUS + 8) * unitX; // More space for larger arrows
+          const endY = targetNode.y - (NODE_RADIUS + 8) * unitY;
           
           // Draw arrow using helper function
           if (!shouldSkipDetails) {
@@ -565,7 +568,7 @@ const TaskGraph = () => {
           <strong>Instructions:</strong> Click and drag to pan • Scroll to zoom • Click nodes to highlight dependencies • <strong>Arrows show dependency direction</strong> (A → B means A depends on B)
         </p>
         <p className="mt-1">
-          <strong>Arrow Colors:</strong> Gray arrows = normal dependencies • Orange arrows = highlighted dependencies
+          <strong>Arrow Visibility:</strong> Dark gray arrows = normal dependencies • Orange arrows = highlighted dependencies • Larger arrows when nodes are selected for better visibility
         </p>
       </div>
     </div>
