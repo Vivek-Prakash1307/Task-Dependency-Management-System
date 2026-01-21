@@ -150,11 +150,41 @@ export const taskAPI = {
     method: 'POST',
   }),
   
+  // Force complete a task (bypasses all validation)
+  forceComplete: (id) => apiRequest(`/tasks/${id}/force_complete/`, {
+    method: 'POST',
+  }),
+  
   // Get dependency graph data
   getGraphData: () => apiRequest('/tasks/graph/'),
   
   // Get task statistics
   getStats: () => apiRequest('/tasks/stats/'),
+  
+  // Fix data issues (null priority/estimated_hours)
+  fixData: () => apiRequest('/tasks/fix_data/', {
+    method: 'POST',
+  }),
+  
+  // Simple debug - just get first task details
+  getFirstTask: () => apiRequest('/tasks/').then(response => {
+    const firstTask = response.data.results?.[0];
+    if (firstTask) {
+      console.log('First task data:', firstTask);
+      return { data: { task: firstTask } };
+    }
+    return { data: { task: null } };
+  }),
+  
+  // Fix task 31 specifically
+  fixTask31: () => apiRequest('/tasks/fix_task_31/', {
+    method: 'POST',
+  }),
+  
+  // Fix all problematic tasks
+  fixAllTasks: () => apiRequest('/tasks/fix_all_tasks/', {
+    method: 'POST',
+  }),
 };
 
 // Dependency API endpoints

@@ -19,7 +19,14 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
         await markTaskCompleted(task.id);
         setSuccess('Task marked as completed!');
       } else {
-        await updateTask(task.id, { status: newStatus });
+        // Include priority and estimated_hours to avoid validation issues
+        const updateData = {
+          status: newStatus,
+          priority: task.priority || 3,
+          estimated_hours: task.estimated_hours || 8
+        };
+        
+        await updateTask(task.id, updateData);
         setSuccess(`Status updated to ${apiUtils.formatStatus(newStatus)}!`);
       }
       
@@ -28,6 +35,12 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
       
     } catch (error) {
       console.error('Failed to update task status:', error);
+      console.error('Error details:', {
+        response: error.response,
+        message: error.message,
+        taskId: task.id,
+        newStatus: newStatus
+      });
       // You could add error state here if needed
     } finally {
       setIsUpdating(false);
@@ -43,6 +56,49 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Get priority indicator
+  const getPriorityIndicator = (priority) => {
+    // Ensure priority is a number and handle null/undefined values
+    let numPriority;
+    if (priority === null || priority === undefined) {
+      numPriority = 3; // Default to medium priority
+    } else {
+      numPriority = typeof priority === 'string' ? parseInt(priority, 10) : priority;
+      // Ensure it's a valid number between 1-5
+      if (isNaN(numPriority) || numPriority < 1 || numPriority > 5) {
+        numPriority = 3; // Default to medium priority
+      }
+    }
+    
+    const indicators = {
+      1: { icon: '🔵', color: 'text-blue-500', label: 'Low' },
+      2: { icon: '🟢', color: 'text-green-500', label: 'Medium-Low' },
+      3: { icon: '🟡', color: 'text-yellow-500', label: 'Medium' },
+      4: { icon: '🟠', color: 'text-orange-500', label: 'Medium-High' },
+      5: { icon: '🔴', color: 'text-red-500', label: 'High' },
+    };
+    return { ...indicators[numPriority], priority: numPriority };
+  };
+
+  // Memoize the priority indicator to avoid recalculation
+  const priorityIndicator = React.useMemo(() => getPriorityIndicator(task.priority), [task.priority]);
+
+  // Format estimated completion time
+  const formatEstimatedTime = (estimatedCompletion) => {
+    if (!estimatedCompletion) return null;
+    
+    const { total_hours, can_start_immediately } = estimatedCompletion;
+    
+    if (total_hours === 0) return 'Ready to complete';
+    
+    const days = Math.ceil(total_hours / 8); // Assuming 8 hours per day
+    const timeText = days === 1 ? '1 day' : `${days} days`;
+    
+    return can_start_immediately 
+      ? `~${timeText} (can start now)`
+      : `~${timeText} (waiting for dependencies)`;
   };
 
   // Get status badge classes
@@ -64,9 +120,8 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
 
   // Check if status change is allowed
   const canChangeStatus = (currentStatus, newStatus) => {
-    // Only prevent changing from completed status
-    if (currentStatus === 'completed') return false;
-    // Allow all other status changes - users should be able to manually set any status
+    // Allow all status changes - users should have full control
+    // The backend and automatic status update logic will handle business rules
     return true;
   };
 
@@ -82,6 +137,11 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
             <span className={getStatusBadgeClass(task.status)}>
               {apiUtils.getStatusIcon(task.status)} {apiUtils.formatStatus(task.status)}
             </span>
+            {/* Priority Indicator */}
+            <span className={`flex items-center space-x-1 ${priorityIndicator.color}`} title={`Priority: ${priorityIndicator.label}`}>
+              <span>{priorityIndicator.icon}</span>
+              <span className="text-xs font-medium">P{priorityIndicator.priority}</span>
+            </span>
           </div>
 
           {task.description && (
@@ -92,8 +152,15 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
 
           {/* Task Metadata */}
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-            <span>Created: {formatDate(task.created_at)}</span>
-            <span>Updated: {formatDate(task.updated_at)}</span>
+            <span>📅 Created: {formatDate(task.created_at)}</span>
+            <span>🔄 Updated: {formatDate(task.updated_at)}</span>
+            <span>⏱️ Est: {task.estimated_hours || 8}h</span>
+            
+            {task.estimated_completion && formatEstimatedTime(task.estimated_completion) && (
+              <span className="text-blue-600 font-medium">
+                ⏰ {formatEstimatedTime(task.estimated_completion)}
+              </span>
+            )}
             
             {task.dependencies && task.dependencies.length > 0 && (
               <span className="flex items-center">

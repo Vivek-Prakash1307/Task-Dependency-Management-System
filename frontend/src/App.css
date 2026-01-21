@@ -35,10 +35,24 @@
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
   cursor: grab;
+  transition: cursor 0.2s ease;
 }
 
 .graph-canvas:active {
   cursor: grabbing;
+}
+
+.graph-canvas.cursor-grab {
+  cursor: grab;
+}
+
+.graph-canvas.cursor-grabbing {
+  cursor: grabbing;
+}
+
+/* Visual feedback for draggable nodes */
+.graph-canvas:hover {
+  border-color: #d1d5db;
 }
 
 /* Tooltip styles */

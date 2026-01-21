@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useTask } from '../contexts/TaskContext';
 
-const TaskStats = () => {
+const TaskStats = ({ globalSearch = '' }) => {
   const { stats, tasks, loadStats } = useTask();
 
   useEffect(() => {
@@ -10,26 +10,53 @@ const TaskStats = () => {
 
   // Calculate additional statistics
   const additionalStats = React.useMemo(() => {
-    if (tasks.length === 0) {
+    // Filter tasks by search if provided
+    let filteredTasks = tasks;
+    if (globalSearch.trim()) {
+      const query = globalSearch.toLowerCase().trim();
+      filteredTasks = tasks.filter(task => 
+        task.title.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query)
+      );
+    }
+
+    if (filteredTasks.length === 0) {
       return {
         avgDependencies: 0,
         maxDependencies: 0,
         tasksWithDependencies: 0,
         tasksWithDependents: 0,
         completionRate: 0,
+        filteredStats: {
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          completed: 0,
+          blocked: 0
+        }
       };
     }
 
-    const dependencyCounts = tasks.map(task => task.dependencies?.length || 0);
+    const dependencyCounts = filteredTasks.map(task => task.dependencies?.length || 0);
+
+    // Calculate filtered status counts
+    const filteredStats = {
+      total: filteredTasks.length,
+      pending: filteredTasks.filter(task => task.status === 'pending').length,
+      in_progress: filteredTasks.filter(task => task.status === 'in_progress').length,
+      completed: filteredTasks.filter(task => task.status === 'completed').length,
+      blocked: filteredTasks.filter(task => task.status === 'blocked').length,
+    };
 
     return {
-      avgDependencies: dependencyCounts.reduce((a, b) => a + b, 0) / tasks.length,
+      avgDependencies: dependencyCounts.reduce((a, b) => a + b, 0) / filteredTasks.length,
       maxDependencies: Math.max(...dependencyCounts),
-      tasksWithDependencies: tasks.filter(task => task.dependencies?.length > 0).length,
-      tasksWithDependents: tasks.filter(task => task.dependents?.length > 0).length,
-      completionRate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0,
+      tasksWithDependencies: filteredTasks.filter(task => task.dependencies?.length > 0).length,
+      tasksWithDependents: filteredTasks.filter(task => task.dependents?.length > 0).length,
+      completionRate: filteredStats.total > 0 ? (filteredStats.completed / filteredStats.total) * 100 : 0,
+      filteredStats
     };
-  }, [tasks, stats]);
+  }, [tasks, globalSearch]);
 
   // Status distribution data for chart
   const statusData = [
@@ -48,7 +75,14 @@ const TaskStats = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">Task Statistics</h3>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Task Statistics</h3>
+          {globalSearch && (
+            <p className="text-sm text-blue-600 mt-1">
+              Filtered by: "{globalSearch}" ({additionalStats.filteredStats.total} tasks)
+            </p>
+          )}
+        </div>
         <button
           onClick={loadStats}
           className="btn-secondary text-sm py-1 px-3"
@@ -62,8 +96,17 @@ const TaskStats = () => {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm font-medium text-gray-600">
+                {globalSearch ? 'Filtered Tasks' : 'Total Tasks'}
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {globalSearch ? additionalStats.filteredStats.total : stats.total}
+              </p>
+              {globalSearch && stats.total !== additionalStats.filteredStats.total && (
+                <p className="text-xs text-gray-500">
+                  of {stats.total} total
+                </p>
+              )}
             </div>
             <div className="text-3xl">📋</div>
           </div>
@@ -73,7 +116,9 @@ const TaskStats = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {globalSearch ? additionalStats.filteredStats.completed : stats.completed}
+              </p>
               <p className="text-xs text-gray-500">
                 {additionalStats.completionRate.toFixed(1)}% complete
               </p>
@@ -86,7 +131,9 @@ const TaskStats = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">In Progress</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.in_progress}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {globalSearch ? additionalStats.filteredStats.in_progress : stats.in_progress}
+              </p>
             </div>
             <div className="text-3xl">🔄</div>
           </div>
@@ -96,7 +143,9 @@ const TaskStats = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Blocked</p>
-              <p className="text-2xl font-bold text-red-600">{stats.blocked}</p>
+              <p className="text-2xl font-bold text-red-600">
+                {globalSearch ? additionalStats.filteredStats.blocked : stats.blocked}
+              </p>
             </div>
             <div className="text-3xl">🚫</div>
           </div>

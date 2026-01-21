@@ -6,6 +6,15 @@ from django.core.exceptions import ValidationError
 from typing import List, Set, Dict, Optional
 
 
+class TaskPriority(models.IntegerChoices):
+    """Task priority choices (1-5, where 5 is highest priority)."""
+    LOW = 1, 'Low (1)'
+    MEDIUM_LOW = 2, 'Medium-Low (2)'
+    MEDIUM = 3, 'Medium (3)'
+    MEDIUM_HIGH = 4, 'Medium-High (4)'
+    HIGH = 5, 'High (5)'
+
+
 class TaskStatus(models.TextChoices):
     """Task status choices."""
     PENDING = 'pending', 'Pending'
@@ -24,6 +33,15 @@ class Task(models.Model):
         max_length=20,
         choices=TaskStatus.choices,
         default=TaskStatus.PENDING
+    )
+    priority = models.IntegerField(
+        choices=TaskPriority.choices,
+        default=TaskPriority.MEDIUM,
+        help_text="Task priority from 1 (Low) to 5 (High)"
+    )
+    estimated_hours = models.PositiveIntegerField(
+        default=8,
+        help_text="Estimated hours to complete this task"
     )
     version = models.PositiveIntegerField(default=1)  # For optimistic locking
     created_at = models.DateTimeField(auto_now_add=True)
@@ -50,6 +68,68 @@ class Task(models.Model):
         if not dependencies:
             return True
         return all(dep.status == TaskStatus.COMPLETED for dep in dependencies)
+
+    def get_estimated_completion_time(self) -> dict:
+        """
+        Calculate estimated completion time based on dependencies.
+        Returns dict with total_hours and critical_path.
+        """
+        if self.status == TaskStatus.COMPLETED:
+            return {
+                'total_hours': 0,
+                'critical_path': [self.id],
+                'can_start_immediately': True
+            }
+        
+        # Build dependency graph
+        visited = set()
+        
+        def calculate_path_time(task_id: int) -> tuple:
+            """Returns (max_hours_to_completion, critical_path)"""
+            if task_id in visited:
+                return (0, [])  # Avoid cycles
+            
+            visited.add(task_id)
+            
+            try:
+                task = Task.objects.get(id=task_id)
+            except Task.DoesNotExist:
+                return (0, [])
+            
+            if task.status == TaskStatus.COMPLETED:
+                return (0, [])
+            
+            # Get dependencies
+            dependencies = task.get_dependencies()
+            
+            if not dependencies:
+                # No dependencies, just this task's time
+                return (task.estimated_hours, [task_id])
+            
+            # Find the longest dependency path
+            max_dep_time = 0
+            critical_dep_path = []
+            
+            for dep in dependencies:
+                if dep.status != TaskStatus.COMPLETED:
+                    dep_time, dep_path = calculate_path_time(dep.id)
+                    if dep_time > max_dep_time:
+                        max_dep_time = dep_time
+                        critical_dep_path = dep_path
+            
+            # Add this task's time to the critical path
+            total_time = max_dep_time + task.estimated_hours
+            full_path = critical_dep_path + [task_id]
+            
+            return (total_time, full_path)
+        
+        total_hours, critical_path = calculate_path_time(self.id)
+        
+        return {
+            'total_hours': total_hours,
+            'critical_path': critical_path,
+            'can_start_immediately': self.can_start()
+        }
 
     def is_blocked(self) -> bool:
         """Check if task is blocked by any dependency."""
@@ -93,36 +173,6 @@ class Task(models.Model):
         return False
 
     def save(self, *args, **kwargs):
-        """Override save to handle version control for concurrent updates."""
-        if self.pk:  # Updating existing task
-            # Check if version was provided for optimistic locking
-            expected_version = getattr(self, '_expected_version', None)
-            if expected_version is not None:
-                # Verify the version hasn't changed
-                current_task = Task.objects.filter(pk=self.pk, version=expected_version).first()
-                if not current_task:
-                    from django.core.exceptions import ValidationError
-                    raise ValidationError(
-                        "This task was modified by another user. Please refresh and try again.",
-                        code='concurrent_modification'
-                    )
-            
-            # Increment version on update
-            self.version += 1
-        
-        super().save(*args, **kwargs)
-
-    def propagate_status_update(self):
-        """
-        Propagate status changes to dependent tasks recursively.
-        """
-        dependents = self.get_dependents()
-        for dependent in dependents:
-            if dependent.update_status_based_on_dependencies():
-                # Recursively update dependents if status changed
-                dependent.propagate_status_update()
-
-    def save(self, *args, **kwargs):
         """Override save to handle version control and status propagation."""
         is_new = self.pk is None
         old_status = None
@@ -148,9 +198,20 @@ class Task(models.Model):
             
         super().save(*args, **kwargs)
         
-        # Propagate status changes to dependents
-        if not is_new and old_status != self.status:
-            self.propagate_status_update()
+        # Temporarily disable automatic status propagation to avoid interference
+        # with manual updates. Users should have full control over task status.
+        # if not is_new and old_status != self.status:
+        #     self.propagate_status_update()
+
+    def propagate_status_update(self):
+        """
+        Propagate status changes to dependent tasks recursively.
+        """
+        dependents = self.get_dependents()
+        for dependent in dependents:
+            if dependent.update_status_based_on_dependencies():
+                # Recursively update dependents if status changed
+                dependent.propagate_status_update()
 
     def update_with_version_check(self, **fields):
         """Update task with version checking for concurrent modification detection."""

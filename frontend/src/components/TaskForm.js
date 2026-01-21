@@ -7,6 +7,8 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
     title: '',
     description: '',
     status: 'pending',
+    priority: 3,
+    estimated_hours: 8,
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -19,6 +21,8 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
         title: task.title || '',
         description: task.description || '',
         status: task.status || 'pending',
+        priority: task.priority || 3,
+        estimated_hours: task.estimated_hours || 8,
       });
     }
   }, [task]);
@@ -26,9 +30,16 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Convert numeric fields to numbers
+    let processedValue = value;
+    if (name === 'priority' || name === 'estimated_hours') {
+      processedValue = parseInt(value, 10);
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: processedValue
     }));
     
     // Clear error when user starts typing
@@ -63,6 +74,16 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
       newErrors.status = 'Invalid status selected';
     }
 
+    // Priority validation
+    if (!formData.priority || isNaN(formData.priority) || formData.priority < 1 || formData.priority > 5) {
+      newErrors.priority = 'Priority must be between 1 and 5';
+    }
+
+    // Estimated hours validation
+    if (!formData.estimated_hours || isNaN(formData.estimated_hours) || formData.estimated_hours < 1 || formData.estimated_hours > 200) {
+      newErrors.estimated_hours = 'Estimated hours must be between 1 and 200';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -80,14 +101,21 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
       setErrors({});
       setSuccess('');
       
+      // Ensure numeric fields are numbers
+      const submitData = {
+        ...formData,
+        priority: parseInt(formData.priority, 10),
+        estimated_hours: parseInt(formData.estimated_hours, 10)
+      };
+      
       let result;
       if (task) {
         // Update existing task
-        result = await updateTask(task.id, formData);
+        result = await updateTask(task.id, submitData);
         setSuccess('Task updated successfully!');
       } else {
         // Create new task
-        result = await createTask(formData);
+        result = await createTask(submitData);
         setSuccess('Task created successfully!');
       }
       
@@ -99,7 +127,33 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
       
     } catch (error) {
       console.error('Failed to save task:', error);
-      setErrors({ submit: error.message || 'Failed to save task' });
+      
+      // Better error handling
+      let errorMessage = 'Failed to save task';
+      if (error.response && error.response.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else {
+          // Handle field-specific errors
+          const fieldErrors = [];
+          Object.keys(error.response.data).forEach(field => {
+            if (Array.isArray(error.response.data[field])) {
+              fieldErrors.push(`${field}: ${error.response.data[field].join(', ')}`);
+            } else {
+              fieldErrors.push(`${field}: ${error.response.data[field]}`);
+            }
+          });
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('; ');
+          }
+        }
+      }
+      
+      setErrors({ submit: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
@@ -174,6 +228,54 @@ const TaskForm = ({ task, onClose, onSuccess }) => {
             <p className="mt-1 text-sm text-gray-500">
               {formData.description.length}/1000 characters
             </p>
+          </div>
+
+          {/* Priority and Estimated Hours Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Priority Field */}
+            <div>
+              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                Priority *
+              </label>
+              <select
+                id="priority"
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                className={`select-field ${errors.priority ? 'border-red-500' : ''}`}
+              >
+                <option value={1}>1 - Low</option>
+                <option value={2}>2 - Medium-Low</option>
+                <option value={3}>3 - Medium</option>
+                <option value={4}>4 - Medium-High</option>
+                <option value={5}>5 - High</option>
+              </select>
+              {errors.priority && (
+                <p className="mt-1 text-sm text-red-600">{errors.priority}</p>
+              )}
+            </div>
+
+            {/* Estimated Hours Field */}
+            <div>
+              <label htmlFor="estimated_hours" className="block text-sm font-medium text-gray-700 mb-1">
+                Estimated Hours *
+              </label>
+              <input
+                type="number"
+                id="estimated_hours"
+                name="estimated_hours"
+                value={formData.estimated_hours}
+                onChange={handleChange}
+                min="1"
+                max="200"
+                step="1"
+                className={`input-field ${errors.estimated_hours ? 'border-red-500' : ''}`}
+                placeholder="8"
+              />
+              {errors.estimated_hours && (
+                <p className="mt-1 text-sm text-red-600">{errors.estimated_hours}</p>
+              )}
+            </div>
           </div>
 
           {/* Status Field (only for editing) */}

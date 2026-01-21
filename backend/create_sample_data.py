@@ -23,70 +23,90 @@ def create_sample_data():
     task1 = Task.objects.create(
         title="Setup Development Environment",
         description="Install Python, Django, and required dependencies",
-        status="completed"
+        status="completed",
+        priority=3,
+        estimated_hours=4
     )
     tasks.append(task1)
     
     task2 = Task.objects.create(
         title="Design Database Schema",
         description="Create ERD and define table relationships",
-        status="completed"
+        status="completed",
+        priority=5,
+        estimated_hours=8
     )
     tasks.append(task2)
     
     task3 = Task.objects.create(
         title="Implement User Authentication",
         description="Create login, registration, and session management",
-        status="in_progress"
+        status="in_progress",
+        priority=4,
+        estimated_hours=12
     )
     tasks.append(task3)
     
     task4 = Task.objects.create(
         title="Create Task Management API",
         description="Build REST API endpoints for task CRUD operations",
-        status="pending"
+        status="pending",
+        priority=5,
+        estimated_hours=16
     )
     tasks.append(task4)
     
     task5 = Task.objects.create(
         title="Implement Dependency Logic",
         description="Add circular dependency detection and status propagation",
-        status="pending"
+        status="pending",
+        priority=5,
+        estimated_hours=20
     )
     tasks.append(task5)
     
     task6 = Task.objects.create(
         title="Build Frontend Components",
         description="Create React components for task management UI",
-        status="pending"
+        status="pending",
+        priority=4,
+        estimated_hours=24
     )
     tasks.append(task6)
     
     task7 = Task.objects.create(
         title="Add Graph Visualization",
         description="Implement Canvas-based dependency graph",
-        status="pending"
+        status="pending",
+        priority=3,
+        estimated_hours=16
     )
     tasks.append(task7)
     
     task8 = Task.objects.create(
         title="Write Unit Tests",
         description="Create comprehensive test suite for backend and frontend",
-        status="pending"
+        status="pending",
+        priority=2,
+        estimated_hours=12
     )
     tasks.append(task8)
     
     task9 = Task.objects.create(
         title="Deploy to Production",
         description="Setup production environment and deploy application",
-        status="pending"
+        status="pending",
+        priority=4,
+        estimated_hours=8
     )
     tasks.append(task9)
     
     task10 = Task.objects.create(
         title="User Documentation",
         description="Write user manual and API documentation",
-        status="pending"
+        status="pending",
+        priority=2,
+        estimated_hours=6
     )
     tasks.append(task10)
     
