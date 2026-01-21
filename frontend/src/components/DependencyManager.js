@@ -61,19 +61,17 @@ const DependencyManager = ({ task, onClose, onSuccess }) => {
   };
 
   // Handle removing dependency
-  const handleRemoveDependency = async (dependencyId) => {
+  const handleRemoveDependency = async (dependency) => {
     try {
-      setIsRemoving(dependencyId);
+      setIsRemoving(dependency.id);
       setError('');
       setSuccess('');
       
-      // Find the dependency relationship
-      const dependency = task.dependencies?.find(dep => dep.id === dependencyId);
-      if (!dependency) return;
-
-      // We need to find the TaskDependency ID, not the task ID
-      // For now, we'll use the task ID and let the backend handle it
-      await removeDependency(task.id, dependencyId);
+      // Use the dependency_id (TaskDependency relationship ID) if available
+      // Otherwise fall back to the task ID for backwards compatibility
+      const dependencyIdToRemove = dependency.dependency_id || dependency.id;
+      
+      await removeDependency(task.id, dependencyIdToRemove);
       
       setSuccess('Dependency removed successfully!');
       
@@ -149,7 +147,7 @@ const DependencyManager = ({ task, onClose, onSuccess }) => {
                       <span className="font-medium text-gray-900">{dep.title}</span>
                     </div>
                     <button
-                      onClick={() => handleRemoveDependency(dep.id)}
+                      onClick={() => handleRemoveDependency(dep)}
                       className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center space-x-1"
                       disabled={loading || isRemoving === dep.id}
                     >

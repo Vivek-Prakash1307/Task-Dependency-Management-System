@@ -168,9 +168,8 @@ export function TaskProvider({ children }) {
     };
     
     try {
-      dispatch({ type: TASK_ACTIONS.SET_LOADING, payload: true });
-      
-      // Apply optimistic update immediately
+      // Apply optimistic update immediately WITHOUT setting loading state
+      // This ensures the UI updates instantly
       dispatch({ type: TASK_ACTIONS.UPDATE_TASK, payload: optimisticTask });
       
       const response = await taskAPI.updateTask(taskId, taskData);

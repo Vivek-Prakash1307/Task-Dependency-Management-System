@@ -64,14 +64,17 @@ class TaskSerializer(serializers.ModelSerializer):
         return result
 
     def get_dependencies(self, obj):
-        """Get list of tasks this task depends on."""
+        """Get list of tasks this task depends on with relationship IDs."""
+        # Get TaskDependency objects to access relationship IDs
+        dependency_relationships = obj.dependencies.select_related('depends_on').all()
         return [
             {
-                'id': dep.id,
-                'title': dep.title,
-                'status': dep.status
+                'id': dep_rel.depends_on.id,  # Task ID
+                'dependency_id': dep_rel.id,  # TaskDependency relationship ID
+                'title': dep_rel.depends_on.title,
+                'status': dep_rel.depends_on.status
             }
-            for dep in obj.get_dependencies()
+            for dep_rel in dependency_relationships
         ]
 
     def get_dependents(self, obj):

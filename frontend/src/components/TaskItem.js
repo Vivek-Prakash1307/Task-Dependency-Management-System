@@ -6,10 +6,19 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
   const { updateTask, markTaskCompleted } = useTask();
   const [isUpdating, setIsUpdating] = useState(false);
   const [success, setSuccess] = useState('');
+  const [localStatus, setLocalStatus] = useState(task.status);
+
+  // Update local status when task prop changes
+  React.useEffect(() => {
+    setLocalStatus(task.status);
+  }, [task.status]);
 
   // Handle status change
   const handleStatusChange = async (newStatus) => {
     if (isUpdating) return;
+
+    // Update local state immediately for instant feedback
+    setLocalStatus(newStatus);
 
     try {
       setIsUpdating(true);
@@ -41,7 +50,8 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
         taskId: task.id,
         newStatus: newStatus
       });
-      // You could add error state here if needed
+      // Revert local status on error
+      setLocalStatus(task.status);
     } finally {
       setIsUpdating(false);
     }
@@ -134,8 +144,8 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
             <h3 className="text-lg font-semibold text-gray-900 truncate">
               {task.title}
             </h3>
-            <span className={getStatusBadgeClass(task.status)}>
-              {apiUtils.getStatusIcon(task.status)} {apiUtils.formatStatus(task.status)}
+            <span className={getStatusBadgeClass(localStatus)}>
+              {apiUtils.getStatusIcon(localStatus)} {apiUtils.formatStatus(localStatus)}
             </span>
             {/* Priority Indicator */}
             <span className={`flex items-center space-x-1 ${priorityIndicator.color}`} title={`Priority: ${priorityIndicator.label}`}>
@@ -213,7 +223,7 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
             </div>
           )}
 
-          {task.status === 'pending' && task.can_start && (
+          {localStatus === 'pending' && task.can_start && (
             <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
               <p className="text-sm text-green-800">
                 ✅ This task is ready to start
@@ -226,32 +236,32 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
         <div className="flex flex-col space-y-2 ml-6">
           {/* Status Selector */}
           <select
-            value={task.status}
+            value={localStatus}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={isUpdating}
             className="select-field text-sm w-32 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option 
               value="pending" 
-              disabled={!canChangeStatus(task.status, 'pending')}
+              disabled={!canChangeStatus(localStatus, 'pending')}
             >
               Pending
             </option>
             <option 
               value="in_progress" 
-              disabled={!canChangeStatus(task.status, 'in_progress')}
+              disabled={!canChangeStatus(localStatus, 'in_progress')}
             >
               In Progress
             </option>
             <option 
               value="completed" 
-              disabled={!canChangeStatus(task.status, 'completed')}
+              disabled={!canChangeStatus(localStatus, 'completed')}
             >
               Completed
             </option>
             <option 
               value="blocked" 
-              disabled={!canChangeStatus(task.status, 'blocked')}
+              disabled={!canChangeStatus(localStatus, 'blocked')}
             >
               Blocked
             </option>
@@ -285,7 +295,7 @@ const TaskItem = ({ task, onEdit, onDelete, onManageDependencies }) => {
           </div>
 
           {/* Quick Complete Button */}
-          {task.status !== 'completed' && task.can_start && (
+          {localStatus !== 'completed' && task.can_start && (
             <button
               onClick={() => handleStatusChange('completed')}
               disabled={isUpdating}
